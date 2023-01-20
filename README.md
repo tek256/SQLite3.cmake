@@ -3,7 +3,6 @@
       <b>sqlite3.cmake</b><br>
   	  <span font-size="16px">a cmake implementation for sqlite3 for installing/using SQLite3</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
-      <span><img src="https://github.com/tek256/sqlite3.cmake/workflows/Build%20SQLite3/badge.svg"></span>
     </p>
 </div>
 
