@@ -3,7 +3,7 @@
 #--------------------------------------------
 
 cmake_minimum_required(VERSION 3.5)
-project(SQLite3 LANGUAGES C)
+project(SQLite3 VERSION 3.40.1 LANGUAGES C)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
@@ -38,11 +38,6 @@ if(_sqlite_list_len EQUAL 4)
     list(GET _sqlite_ver_LIST 3 SQLITE_VER_PATCHLEVEL)
     message("Patch level: ${SQLITE_VER_PATCHLEVEL}")
 endif()
-
-# Set the library version from what is grep'd in the code
-set(${PROJECT_NAME}_VERSION_MAJOR ${SQLITE_VER_MAJOR})
-set(${PROJECT_NAME}_VERSION_MINOR ${SQLITE_VER_MINOR})
-set(${PROJECT_NAME}_VERSION_PATCH ${SQLITE_VER_PATCH})
 
 message("FOUND: SQLite version = ${SQLITE_VER_STRING}")
 
@@ -83,7 +78,7 @@ if (SQLITE_BUILD_SHARED)
     # build dynamic library
     add_library(${SQLITE_DYN_NAME} SHARED ${SRC_LIB_FILE})
     if (WIN32)
-        #then we do dll library, so need to export api
+        # then we do dll library, so need to export api
         set_target_properties(${SQLITE_DYN_NAME} PROPERTIES DEFINE_SYMBOL "SQLITE_API=__declspec(dllexport)")
     endif()
 endif()
@@ -124,10 +119,10 @@ configure_package_config_file(
   NO_SET_AND_CHECK_MACRO
   INSTALL_DESTINATION ${CMAKE_INSTALL_DATADIR}/cmake/${PROJECT_NAME})
 
-write_basic_package_version_file(${PROJECT_NAME}Config-version.cmake
+write_basic_package_version_file(${PROJECT_NAME}ConfigVersion.cmake
   COMPATIBILITY SameMajorVersion)
 
 install(FILES
-  ${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config-version.cmake
+  ${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
   ${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
   DESTINATION ${CMAKE_INSTALL_DATADIR}/cmake/${PROJECT_NAME})
