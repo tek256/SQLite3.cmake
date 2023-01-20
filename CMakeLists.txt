@@ -36,9 +36,6 @@ set(SQLITE_DYN_NAME "${PROJECT_NAME}")
 set(SQLITE_STATIC_NAME "${SQLITE_DYN_NAME}-static")
 
 # add include path for project
-include_directories(
-  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 # adding compilation flags depending on options
 add_compile_definitions(
   $<$<BOOL:${SQLITE_DEBUG}>:SQLITE_DEBUG>
@@ -57,6 +54,9 @@ if (SQLITE_BUILD_STATIC)
     add_library(${SQLITE_STATIC_NAME} STATIC ${SRC_LIB_FILE})
     add_library(SQLite3::Static ALIAS ${SQLITE_STATIC_NAME})
     set_property(TARGET ${SQLITE_STATIC_NAME} PROPERTY EXPORT_NAME Static)
+    target_include_directories(${SQLITE_STATIC_NAME} PUBLIC
+      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 endif()
 
 if (SQLITE_BUILD_SHARED)
@@ -64,6 +64,9 @@ if (SQLITE_BUILD_SHARED)
     add_library(${SQLITE_DYN_NAME} SHARED ${SRC_LIB_FILE})
     add_library(${PROJECT_NAME}::Dynamic ALIAS ${SQLITE_DYN_NAME})
     set_property(TARGET ${SQLITE_DYN_NAME} PROPERTY EXPORT_NAME Dynamic)
+    target_include_directories(${SQLITE_DYN_NAME} PUBLIC
+      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
     if (WIN32)
       set_property(TARGET ${SQLITE_DYN_NAME}
         PROPERTY
