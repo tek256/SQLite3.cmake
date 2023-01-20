@@ -1,0 +1,2 @@
+@PACKAGE_INIT@
+check_required_components(@PROJECT_NAME@)
