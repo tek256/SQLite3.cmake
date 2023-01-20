@@ -1,31 +1,22 @@
 #--------------------------------------------
 # SQLite build script for amalgamation
 #--------------------------------------------
-
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.21)
 project(SQLite3 VERSION 3.40.1 LANGUAGES C)
+
+set(THREADS_PREFER_PTHREAD_FLAG YES)
+find_package(Threads REQUIRED)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
 option(SQLITE_BUILD_STATIC  "Build SQLite static library" ON)
 option(SQLITE_BUILD_SHARED  "Build SQLite shared library" ON)
-option(SQLITE_DEBUG    "Build SQLite debug features" OFF)
+
 option(SQLITE_MEMDEBUG "Build SQLite memory debug features" OFF)
+option(SQLITE_DEBUG    "Build SQLite debug features" OFF)
 option(SQLITE_RTREE    "Build R*Tree index extension" OFF)
 
-set(INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin" CACHE PATH "Installation directory for executables")
-set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib" CACHE PATH "Installation directory for libraries")
-set(INSTALL_INC_DIR "${CMAKE_INSTALL_PREFIX}/include" CACHE PATH "Installation directory for headers")
-
-set(SQLITE_WINRT_BUILD OFF)
-if(${CMAKE_SYSTEM_NAME} MATCHES "WindowsStore")
-    set(SQLITE_WINRT_BUILD ON)
-endif()
-
-# ---------------------
-# Version detection
-# ---------------------
 file(STRINGS "${PROJECT_SOURCE_DIR}/src/sqlite3.h" _sqlite_api_h_VER_STRING REGEX ".*#define[ ]+SQLITE_VERSION[ ]+")
 
 string(REGEX MATCH "[0-9\\.]+" SQLITE_VER_STRING ${_sqlite_api_h_VER_STRING})
@@ -39,64 +30,55 @@ if(_sqlite_list_len EQUAL 4)
     message("Patch level: ${SQLITE_VER_PATCHLEVEL}")
 endif()
 
-message("FOUND: SQLite version = ${SQLITE_VER_STRING}")
+message(VERBOSE "FOUND: SQLite version = ${SQLITE_VER_STRING}")
 
 set(SQLITE_DYN_NAME "${PROJECT_NAME}")
 set(SQLITE_STATIC_NAME "${SQLITE_DYN_NAME}-static")
 
-find_package(Threads REQUIRED)
-
 # add include path for project
-include_directories(${PROJECT_SOURCE_DIR}/src)
+include_directories(
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+# adding compilation flags depending on options
+add_compile_definitions(
+  $<$<BOOL:${SQLITE_DEBUG}>:SQLITE_DEBUG>
+  $<$<BOOL:${SQLITE_MEMDEBUG}>:SQLITE_MEMDEBUG>
+  $<$<BOOL:${SQLITE_RTREE}>:SQLITE_RTREE>
+  $<$<PLATFORM_ID:WindowsStore>:SQLITE_OS_WINRT>
+)
+
 
 set(SRC_LIB_FILE ${PROJECT_SOURCE_DIR}/src/sqlite3.c)
 set(SRC_SHELL_FILE ${PROJECT_SOURCE_DIR}/src/shell.c)
 file(GLOB HEADER_FILES ${PROJECT_SOURCE_DIR}/src/*.h)
 
-# adding compilation flags depending on options
-if(SQLITE_DEBUG)
-    add_definitions(-DSQLITE_DEBUG)
-endif()
-if(SQLITE_MEMDEBUG)
-    add_definitions(-DSQLITE_MEMDEBUG)
-endif()
-if(SQLITE_RTREE)
-    add_definitions(-DSQLITE_ENABLE_RTREE)
-endif()
-
-if(SQLITE_WINRT_BUILD)
-    # Don't use tools that are unavailable on RT platforms
-    add_definitions(-DSQLITE_OS_WINRT)
-endif()
-
 if (SQLITE_BUILD_STATIC)
     # build static library
     add_library(${SQLITE_STATIC_NAME} STATIC ${SRC_LIB_FILE})
+    add_library(SQLite3::Static ALIAS ${SQLITE_STATIC_NAME})
+    set_property(TARGET ${SQLITE_STATIC_NAME} PROPERTY EXPORT_NAME Static)
 endif()
 
 if (SQLITE_BUILD_SHARED)
     # build dynamic library
     add_library(${SQLITE_DYN_NAME} SHARED ${SRC_LIB_FILE})
+    add_library(${PROJECT_NAME}::Dynamic ALIAS ${SQLITE_DYN_NAME})
+    set_property(TARGET ${SQLITE_DYN_NAME} PROPERTY EXPORT_NAME Dynamic)
     if (WIN32)
-        # then we do dll library, so need to export api
-        set_target_properties(${SQLITE_DYN_NAME} PROPERTIES DEFINE_SYMBOL "SQLITE_API=__declspec(dllexport)")
+      set_property(TARGET ${SQLITE_DYN_NAME}
+        PROPERTY
+          DEFINE_SYMBOL "SQLITE_API=__declspec(dllexport)")
     endif()
 endif()
 
 # build shell executable
 add_executable(shell ${SRC_SHELL_FILE})
 
-if (SQLITE_BUILD_SHARED)
-    # preferred is shared library
-    set(sqlite3_LIBS ${SQLITE_DYN_NAME})
-    target_link_libraries(shell ${SQLITE_DYN_NAME} ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
-elseif(SQLITE_BUILD_STATIC)
-    set(sqlite3_LIBS ${SQLITE_STATIC_NAME})
-    target_link_libraries(shell ${SQLITE_STATIC_NAME} ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
-else()
-    # no static or dynamic option selected
-    message(FATAL_ERROR "either static or dynamic option should be selected")
-endif()
+target_link_libraries(shell
+  PRIVATE
+    $<IF:$<BOOL:${SQLITE_BUILD_SHARED}>,SQLite3::Dynamic,SQLite3::Static>
+    Threads::Threads
+    ${CMAKE_DL_LIBS})
 
 # installation
 list(APPEND TO_INSTALL shell)
@@ -107,11 +89,11 @@ if(SQLITE_BUILD_STATIC)
     list(APPEND TO_INSTALL ${SQLITE_STATIC_NAME})
 endif()
 
-install(TARGETS ${TO_INSTALL}
-        RUNTIME DESTINATION "${INSTALL_BIN_DIR}"
-        ARCHIVE DESTINATION "${INSTALL_LIB_DIR}"
-        LIBRARY DESTINATION "${INSTALL_LIB_DIR}" )
-install(FILES ${HEADER_FILES} DESTINATION "${INSTALL_INC_DIR}")
+install(TARGETS ${TO_INSTALL} EXPORT ${PROJECT_NAME}Targets)
+install(EXPORT ${PROJECT_NAME}Targets
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/cmake/${PROJECT_NAME}
+  NAMESPACE SQLite3::)
+  install(FILES ${HEADER_FILES} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
 configure_package_config_file(
   ${PROJECT_SOURCE_DIR}/${PROJECT_NAME}Config.cmake.in
